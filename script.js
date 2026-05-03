@@ -1,3 +1,8 @@
+const SUPABASE_URL = "https://qzqkqxpwkbvxuddlvmku.supabase.co";
+const SUPABASE_KEY = "sb_publishable_ws_tIYvwKm-CngRozIb99A_N3TJuVzD";
+
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
 
 /* =====================================================================
    FINANCIAL MODEL — clean rewrite
