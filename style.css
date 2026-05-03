@@ -382,7 +382,7 @@ tr.bold-row{background:var(--alt)}
 .port-logo .logo{flex-shrink:0}
 .port-body{max-width:1600px;margin:0 auto;padding:28px 24px}
 .port-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}
-.port-title{font-size:26px;font-weight:800;color:#fff;letter-spacing:-.02em}
+.port-title{font-size:26px;font-weight:800;color:#4a3570;letter-spacing:-.02em}
 .port-subtitle{font-size:13px;color:rgba(255,255,255,.9);margin-top:4px}
 .port-actions{display:flex;gap:10px;align-items:center}
 .port-filter{display:flex;gap:8px;margin-bottom:22px;flex-wrap:wrap}
