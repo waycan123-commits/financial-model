@@ -4,7 +4,7 @@
 // SUPABASE_KEY  →  "anon public"  (starts with eyJhbGciOiJIUzI1...)
 // ───────────────────────────────────────────────────────────────────────────
 const SUPABASE_URL = "https://qzqkqxpwkbvxuddlvmku.supabase.co";
-const SUPABASE_KEY = "sb_publishable_ws_tIYvwKm-CngRozIb99A_N3TJuVzD"; // ← UPDATE THIS
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF6cWtxeHB3a2J2eHVkZGx2bWt1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc4MjUyMTksImV4cCI6MjA5MzQwMTIxOX0.JeKtff1KozLcl6eHvue-SNsxD0DpdNC6eAZRXyeMjQ0"; // ← UPDATE THIS
 
 let supabaseClient = null;
 let _sbStatus = { ok: false, tested: false, error: '', noRLS: false };
