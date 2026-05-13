@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Financial Model  -  V1 MOD</title>
+<link rel="stylesheet" href="./style.css?v=13">
+</head>
+<body>
+<!-- Reorder panel -->
+<div class="reorder-panel" id="reorder-panel">
+ <div class="reorder-hdr">
+ <span style="font-size:13px;font-weight:700"> Reorder Rows</span>
+ <div style="display:flex;gap:8px;align-items:center">
+ <select id="reorder-which" style="font-size:11px;padding:3px 6px;border-radius:4px;border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.15);color:#fff">
+ <option value="pl">P&L</option>
+ <option value="cf">Cash Flow</option>
+ </select>
+ <button id="reorder-close" style="background:none;border:none;color:#fff;font-size:18px;cursor:pointer;line-height:1">×</button>
+ </div>
+ </div>
+ <div style="padding:10px 14px;font-size:10px;color:var(--sub);border-bottom:1px solid var(--bdr);background:var(--alt)">
+ Drag rows to reorder. Click  to edit formula.
+ </div>
+ <div class="reorder-list" id="reorder-list"></div>
+ <div style="padding:12px 14px;border-top:1px solid var(--bdr)">
+ <button class="btn btn-primary" id="reorder-reset" style="font-size:11px;width:100%">Reset to default order</button>
+ </div>
+</div>
+
+<div id="cl-modal" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.6);align-items:center;justify-content:center;backdrop-filter:blur(2px)">
+ <div style="background:#fff;border-radius:14px;width:min(700px,96vw);max-height:92vh;box-shadow:0 32px 80px rgba(0,0,0,.35);overflow:hidden;display:flex;flex-direction:column">
+ <!-- Header -->
+ <div id="cl-m-header" style="padding:16px 22px;background:var(--navy);color:#fff;display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
+ <span id="cl-m-title" style="font-size:14px;font-weight:700;letter-spacing:.02em">+ Add Calculated Line</span>
+ <button id="cl-m-cancel" style="background:rgba(255,255,255,.15);border:none;color:#fff;font-size:16px;cursor:pointer;line-height:1;padding:4px 9px;border-radius:6px">×</button>
+ </div>
+ <!-- Body scrollable -->
+ <div style="padding:18px 22px;display:grid;gap:12px;overflow-y:auto;flex:1">
+ <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+ <div class="fld" style="margin:0">
+ <label>Line Name</label>
+ <input id="cl-m-name" placeholder="e.g. Management Fee, Royalty…">
+ </div>
+ <div class="fld" style="margin:0">
+ <label>Position in P&amp;L / CF</label>
+ <select id="cl-m-section"></select>
+ </div>
+ </div>
+
+ <div class="fld" style="margin:0">
+ <label style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px">
+ <strong>Formula</strong>
+ <span style="font-size:10px;color:var(--sub);font-weight:400"> — click chips below to insert variables at cursor</span>
+ </label>
+ <div style="position:relative">
+ <input id="cl-m-formula" style="font-family:monospace;font-size:13px;padding-right:36px;width:100%;box-sizing:border-box"
+ placeholder="e.g. totalIncome * 0.02  or  grossProfit * 0.05">
+ <button onclick="document.getElementById('cl-m-formula').value='';document.getElementById('cl-m-formula').focus();if(window._clPreview)_clPreview()"
+   style="position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--sub);font-size:14px;padding:0" title="Clear formula">✕</button>
+ </div>
+ <!-- Live preview -->
+ <div id="cl-m-preview" style="margin-top:6px;padding:8px 12px;background:var(--alt);border-radius:6px;font-size:11px;min-height:28px;color:var(--sub);border-left:3px solid var(--bdr2)">
+ Enter a formula to preview…
+ </div>
+ </div>
+
+ <!-- Interactive Variable Chip Panel -->
+ <div style="border:1.5px solid var(--bdr);border-radius:10px;padding:12px 14px;background:#f9fafb">
+ <div style="font-size:11px;font-weight:700;color:var(--navy);margin-bottom:10px;display:flex;align-items:center;gap:6px">
+   ⬡ Variable Builder
+   <span style="font-size:9px;font-weight:400;color:var(--sub)">Click any chip to insert at cursor position in formula</span>
+ </div>
+ <div id="cl-formula-chips" style="max-height:190px;overflow-y:auto">
+   <div style="color:var(--sub);font-size:11px">Loading variables…</div>
+ </div>
+ </div>
+
+ <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+ <div class="fld" style="margin:0">
+ <label>Sign</label>
+ <select id="cl-m-sign">
+ <option value="subtract">− Deduct</option>
+ <option value="add">+ Add</option>
+ </select>
+ </div>
+ <div class="fld" style="margin:0">
+ <label>Show in Cash Flow?</label>
+ <select id="cl-m-showcf">
+ <option value="1">Yes</option>
+ <option value="0">No</option>
+ </select>
+ </div>
+ <div class="fld" style="margin:0">
+ <label>Note (optional)</label>
+ <input id="cl-m-note" placeholder="Brief description…">
+ </div>
+ </div>
+ </div>
+ <!-- Footer -->
+ <div style="padding:12px 22px;border-top:1px solid var(--bdr);display:flex;gap:8px;justify-content:flex-end;background:var(--alt);flex-shrink:0">
+ <button class="btn" id="cl-m-delete" style="background:transparent;border:1px solid var(--red);color:var(--red);display:none">🗑 Delete line</button>
+ <div style="flex:1"></div>
+ <button class="btn" id="cl-m-cancel2" style="background:transparent;border:1px solid var(--bdr2);color:var(--sub)">Cancel</button>
+ <button class="btn btn-primary" id="cl-m-save">Save</button>
+ </div>
+ </div>
+</div>
+
+<!--  PORTFOLIO SCREEN  -->
+<div id="portfolio-screen">
+ <div class="port-header">
+ <div class="port-logo">
+ <div class="logo" id="logo-wrap" title="Click to upload logo">
+ <div class="logo-placeholder" id="logo-default">
+ <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="2" y="2" width="6" height="6" rx="1.5" fill="white" opacity=".9"/><rect x="10" y="2" width="6" height="6" rx="1.5" fill="white" opacity=".6"/><rect x="2" y="10" width="6" height="6" rx="1.5" fill="white" opacity=".6"/><rect x="10" y="10" width="6" height="6" rx="1.5" fill="white" opacity=".9"/></svg>
+ </div>
+ <img id="logo-img" style="display:none;width:100%;height:100%;object-fit:contain;border-radius:7px" alt="Logo">
+ <input type="file" id="logo-input" accept="image/*" style="display:none">
+ </div>
+ Project Portfolio Manager
+ </div>
+ <button class="btn btn-primary" id="port-new-btn" style="padding:7px 18px;font-size:13px">+ New Project</button>
+ </div>
+ <div class="port-body">
+ <div class="port-top">
+ <div>
+ <div class="port-title" id="port-title-label">My Portfolio</div>
+ <div class="port-subtitle" id="port-subtitle">Loading projects&</div>
+ </div>
+ <div class="port-actions">
+ <input type="file" id="port-import-file" accept=".json" style="display:none">
+ <button class="exp-btn" id="port-import-btn"> Import .json</button>
+ </div>
+ </div>
+ <div class="port-filter" id="port-filter"></div>
+ <div class="port-grid" id="port-grid"></div>
+ </div>
+</div>
+
+<!--  SAVE MODAL  -->
+<div class="modal-overlay" id="save-modal">
+ <div class="modal">
+ <div class="modal-title" id="save-modal-title">Save Project</div>
+ <div style="display:flex;flex-direction:column;gap:12px">
+ <div class="fld"><label>Project Name</label><input type="text" id="save-name"></div>
+ <div class="fld"><label>Classification / Category</label>
+ <input type="text" id="save-class" list="class-list" placeholder="e.g. Infrastructure, Mining&">
+ <datalist id="class-list">
+ <option value="Infrastructure">
+ <option value="Technology">
+ <option value="Real Estate">
+ <option value="Energy">
+ <option value="Mining">
+ <option value="Services">
+ <option value="Industrial">
+ <option value="Construction">
+ <option value="Agriculture">
+ <option value="Other">
+ </datalist>
+ </div>
+ <div class="fld"><label>Description (optional)</label><input type="text" id="save-desc" placeholder="Brief project description"></div>
+ <div class="fld"><label>Status</label>
+ <select id="save-status">
+ <option value="Active">Active</option>
+ <option value="Draft">Draft</option>
+ <option value="Completed">Completed</option>
+ <option value="On Hold">On Hold</option>
+ </select>
+ </div>
+ </div>
+ <div class="modal-actions">
+ <button class="btn" style="background:transparent;border:1px solid var(--bdr2);color:var(--sub)" id="save-cancel">Cancel</button>
+ <button class="btn btn-primary" id="save-confirm">Save Project</button>
+ </div>
+ </div>
+</div>
+
+<div id="project-screen" style="display:none">
+<header>
+ <div class="hdr-inner">
+ <div class="logo" id="proj-logo-wrap" title="Click to upload logo" style="cursor:pointer">
+ <div id="proj-logo-default"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+ <img id="proj-logo-img" style="display:none;width:100%;height:100%;object-fit:contain;border-radius:7px" alt="Logo">
+ </div>
+ <input id="proj-name" value="New Financial Model">
+ <nav id="main-nav">
+ <button class="active" data-tab="dashboard">Dashboard</button>
+ <button data-tab="settings">Settings</button>
+ <button data-tab="revenues">Revenue</button>
+ <button data-tab="capex">CAPEX</button>
+ <button data-tab="opex">OPEX</button>
+ <button data-tab="adjustments">Adjustments</button>
+ <button data-tab="costs">Cost Summary</button>
+ <button data-tab="pl">P&amp;L</button>
+ <button data-tab="cf">Cash Flow</button>
+ <button data-tab="ai"> AI Analysis</button>
+ <button data-tab="formulas"> Formulas</button>
+ <button data-tab="knowhow">📚 Know How</button>
+ </nav>
+ <button class="back-btn" id="back-to-portfolio"> Portfolio</button>
+ <button class="save-btn" id="save-proj-btn"> Save</button>
+ <button class="exp-btn" id="exp-btn"> Export CSV</button>
+ </div>
+</header>
+
+<main>
+ <div class="pg-hdr">
+ <div class="pg-title" id="pg-title">Dashboard</div>
+ <div class="pg-sub" id="pg-sub"></div>
+ </div>
+
+ <!-- DASHBOARD -->
+ <div class="panel show" id="panel-dashboard">
+  <div class="kpi-grid" id="kpi-grid"></div>
+  <div id="chart-view-tog" style="display:flex;align-items:center;gap:8px;margin:8px 0 14px"></div>
+
+  <!-- Row 1: Revenue vs COGS stacked bar + Margin line -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+   <div class="chart-card" style="padding:16px 18px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+     <div id="rc-chart-title" style="font-size:12px;font-weight:700;color:var(--navy)">Revenue vs COGS</div>
+    </div>
+    <div class="chart-canvas-wrap" style="height:200px"><canvas id="chart-rc"></canvas></div>
+   </div>
+   <div class="chart-card" style="padding:16px 18px">
+    <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:12px">Margin Breakdown</div>
+    <div class="chart-canvas-wrap" style="height:200px"><canvas id="chart-margins"></canvas></div>
+   </div>
+  </div>
+
+  <!-- Row 2: Net CF bars + Accumulated CF line -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+   <div class="chart-card" style="padding:16px 18px">
+    <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:12px">Net Cash Flow</div>
+    <div class="chart-canvas-wrap" style="height:180px"><canvas id="chart-ncf"></canvas></div>
+   </div>
+   <div class="chart-card" style="padding:16px 18px">
+    <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:12px">Accumulated Cash Flow</div>
+    <div class="chart-canvas-wrap" style="height:180px"><canvas id="chart-accum"></canvas></div>
+   </div>
+  </div>
+
+  <!-- Row 3: P&L waterfall (full width) -->
+  <div class="chart-card" style="padding:16px 18px;margin-bottom:16px">
+   <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:12px">P&amp;L Waterfall — Annual Summary</div>
+   <div class="chart-canvas-wrap" style="height:220px"><canvas id="chart-waterfall"></canvas></div>
+  </div>
+ </div>
+
+ <!-- SETTINGS -->
+ <div class="panel" id="panel-settings">
+ <div class="card"><div class="card-body">
+ <div class="sec-lbl">Timeline</div>
+ <div class="g-auto" style="grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:20px">
+ <div class="fld"><label>Start Month</label><select id="s-sm"></select></div>
+ <div class="fld"><label>Start Year</label><select id="s-sy"></select></div>
+ <div class="fld"><label>Duration (months)</label><input type="number" id="s-dur" min="1" max="360" step="1" placeholder="e.g. 18"></div>
+ </div>
+ <div class="sec-lbl">Financial Parameters</div>
+ <div class="g-auto" style="grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px">
+ <div class="fld"><label>Exchange Rate (PEN/USD)</label><input type="number" id="s-fx" step="0.01"></div>
+ <div class="fld"><label>Penalties (%)</label><input type="number" id="s-pen" step="0.01"></div>
+ <div class="fld"><label>Contingency (%)</label><input type="number" id="s-con" step="0.01"></div>
+ <div class="fld"><label>OPEX Buffer (% of net revenue)</label><input type="number" id="s-opxbuf" step="0.01" placeholder="30"></div>
+ <div class="fld"><label>Annual Discount Rate (%)</label><input type="number" id="s-dis" step="0.01"></div>
+ <div class="fld"><label>Financing Cost Rate (% monthly, on negative CF)</label><input type="number" id="s-finrate" step="0.01" placeholder="e.g. 1.5"></div>
+ <div class="fld"><label>Compliance Bond (%)</label><input type="number" id="s-fcb-cost" step="0.01" placeholder="0"></div>
+ <div class="fld"><label>Compliance Bond  -  Cost/Month (%)</label><input type="number" id="s-fcb" step="0.01" placeholder="0"></div>
+ <div class="fld"><label>Fin Exp  -  Upfront Bond (%)</label><input type="number" id="s-fub" step="0.01" placeholder="0"></div>
+ <div class="fld"><label>Hedging Adjustment (%)</label><input type="number" id="s-hedg" step="0.01" placeholder="0"></div>
+ </div>
+ </div></div>
+ <div class="set-summary" id="s-sum"></div>
+ </div>
+
+ <!-- REVENUE / CAPEX / OPEX lists -->
+ <div class="panel" id="panel-revenues">
+ <div class="items-hdr">
+ <div class="items-title">Revenue Items</div>
+ <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+ <button class="btn-tpl" id="collapse-all-revenues" title="Collapse all items" style="font-size:11px;padding:4px 10px"> Collapse All</button>
+ <button class="btn-tpl" id="expand-all-revenues" title="Expand all items" style="font-size:11px;padding:4px 10px"> Expand All</button>
+ <button class="btn-tpl" id="dl-tpl-rev"> Template</button>
+ <label class="btn-tpl btn-imp"> Import<input type="file" id="imp-rev" accept=".xlsx,.xls,.csv" style="display:none"></label>
+ <button class="btn btn-primary" id="add-rev">+ Add Item</button>
+ </div>
+ </div>
+ <div id="revenues-list"></div>
+<datalist id="cat-suggestions">
+ <option value="Equipos">
+ <option value="Instalación">
+ <option value="Mano de Obra">
+ <option value="Materiales">
+ <option value="Supervisión">
+ <option value="Ingeniería">
+ <option value="Transporte">
+ <option value="Software">
+ <option value="Mantenimiento">
+ <option value="Capacitación">
+ <option value="Overhead">
+ <option value="Servicios">
+ <option value="Consultoria">
+ <option value="Licencias">
+</datalist>
+ </div>
+ <div class="panel" id="panel-capex">
+ <div class="items-hdr">
+ <div class="items-title">CAPEX Items</div>
+ <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+ <button class="btn-tpl" id="collapse-all-capex" title="Collapse all items" style="font-size:11px;padding:4px 10px"> Collapse All</button>
+ <button class="btn-tpl" id="expand-all-capex" title="Expand all items" style="font-size:11px;padding:4px 10px"> Expand All</button>
+ <button class="btn-tpl" id="dl-tpl-capex"> Template</button>
+ <label class="btn-tpl btn-imp"> Import<input type="file" id="imp-capex" accept=".xlsx,.xls,.csv" style="display:none"></label>
+ <button class="btn btn-primary" id="add-capex">+ Add Item</button>
+ </div>
+ </div>
+ <div id="capex-list"></div>
+ </div>
+ <div class="panel" id="panel-opex">
+ <div class="items-hdr">
+ <div class="items-title">OPEX Items</div>
+ <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+ <button class="btn-tpl" id="collapse-all-opex" title="Collapse all items" style="font-size:11px;padding:4px 10px"> Collapse All</button>
+ <button class="btn-tpl" id="expand-all-opex" title="Expand all items" style="font-size:11px;padding:4px 10px"> Expand All</button>
+ <button class="btn-tpl" id="dl-tpl-opex"> Template</button>
+ <label class="btn-tpl btn-imp"> Import<input type="file" id="imp-opex" accept=".xlsx,.xls,.csv" style="display:none"></label>
+ <button class="btn btn-primary" id="add-opex">+ Add Item</button>
+ </div>
+ </div>
+ <div id="opex-list"></div>
+ </div>
+
+ <!-- COST SUMMARY -->
+ <div class="panel" id="panel-costs">
+ <div id="costs-content"></div>
+ </div>
+
+ <!-- ADJUSTMENTS -->
+ <div class="panel" id="panel-adjustments">
+ <!-- Custom P&L Lines section injected below by JS -->
+ <div class="items-hdr">
+ <div>
+ <div class="items-title">Custom Adjustments</div>
+ <div style="font-size:12px;color:var(--muted);margin-top:2px">Percentage factors applied to selected Revenue / CAPEX / OPEX items  -  appear separately in P&amp;L and Cash Flow</div>
+ </div>
+ <button class="btn btn-primary" id="add-adj">+ Add Adjustment</button>
+ </div>
+ <div id="adj-list"></div>
+ </div>
+
+ <!-- P&L -->
+ <div class="panel" id="panel-pl">
+ <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:8px">
+ <div id="pl-view-tog"></div>
+ <div style="display:flex;gap:6px;align-items:center">
+ <button class="btn-tpl" style="font-size:11px;padding:4px 10px" onclick="openReorderPanel('pl')"> Reorder</button>
+ <button class="btn-tpl" style="font-size:13px;padding:4px 10px;border-color:#888;color:#888" onclick="document.getElementById('pl-tbl-wrap').scrollBy({left:-300,behavior:'smooth'})"></button>
+ <button class="btn-tpl" style="font-size:13px;padding:4px 10px;border-color:#888;color:#888" onclick="document.getElementById('pl-tbl-wrap').scrollBy({left:300,behavior:'smooth'})"></button>
+ <button class="btn-tpl" id="pl-xlsx-btn" style="font-size:11px;padding:5px 12px;background:#e8f4fd;border-color:#0176D3;color:#0176D3"> Excel</button>
+ <button class="btn btn-secondary" id="pl-png-btn" style="font-size:11px;padding:5px 12px"> PNG</button>
+ </div>
+ </div>
+ <div class="tbl-wrap" id="pl-tbl-wrap"><table id="pl-tbl"></table></div>
+ </div>
+
+ <!-- CASH FLOW -->
+ <div class="panel" id="panel-cf">
+ <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:8px">
+ <div id="cf-view-tog"></div>
+ <div style="display:flex;gap:6px;align-items:center">
+ <button class="btn-tpl" style="font-size:11px;padding:4px 10px" onclick="openReorderPanel('cf')"> Reorder</button>
+ <button class="btn-tpl" style="font-size:13px;padding:4px 10px;border-color:#888;color:#888" onclick="document.getElementById('cf-tbl-wrap').scrollBy({left:-300,behavior:'smooth'})"></button>
+ <button class="btn-tpl" style="font-size:13px;padding:4px 10px;border-color:#888;color:#888" onclick="document.getElementById('cf-tbl-wrap').scrollBy({left:300,behavior:'smooth'})"></button>
+ <button class="btn-tpl" id="cf-xlsx-btn" style="font-size:11px;padding:5px 12px;background:#e8f4fd;border-color:#0176D3;color:#0176D3"> Excel</button>
+ <button class="btn btn-secondary" id="cf-png-btn" style="font-size:11px;padding:5px 12px"> PNG</button>
+ </div>
+ </div>
+ <div class="tbl-wrap" id="cf-tbl-wrap"><table id="cf-tbl"></table></div>
+ </div>
+ <!-- FORMULA REFERENCE -->
+ <div class="panel" id="panel-formulas">
+ <div class="pg-hdr">
+ <div>
+ <div class="pg-title">Formula Reference</div>
+ <div class="pg-sub">How each calculated indicator is computed  -  click any formula to customize it</div>
+ </div>
+ </div>
+ <div id="formula-list"></div>
+ </div>
+
+ <!-- AI ANALYSIS -->
+ <div class="panel" id="panel-ai">
+ <div id="ai-content">
+ <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px">
+ <div>
+ <div style="font-size:16px;font-weight:700;color:var(--navy);margin-bottom:4px"> AI Financial Analysis</div>
+ <div style="font-size:12px;color:var(--muted)">Executive summary, interpretation and financing recommendations based on your P&L and Cash Flow data</div>
+ </div>
+ <button class="btn btn-primary" id="ai-run-btn" style="padding:8px 20px;font-size:13px"> Generate Analysis</button>
+ </div>
+ <div id="ai-output" style="display:none">
+ <div id="ai-loading" style="display:none;text-align:center;padding:40px 0">
+ <div style="font-size:28px;margin-bottom:12px;animation:spin 1.5s linear infinite;display:inline-block"></div>
+ <div style="font-size:13px;color:var(--muted)">Analyzing your financial model&</div>
+ </div>
+ <div id="ai-result" style="display:none"></div>
+ </div>
+ </div>
+ </div>
+
+ <!-- KNOW HOW -->
+ <div class="panel" id="panel-knowhow">
+  <div id="knowhow-root"></div>
+ </div>
+
+</main>
+</div><!-- /project-screen -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script>window.XLSX || document.write('<script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"><\/script>');</script>
+<script src="./script.js?v=1004"></script>
+</body>
+</html>
