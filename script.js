@@ -4121,10 +4121,28 @@ async function loadPortfolio() {
   // 2. Try Supabase (no auth required — works if RLS is disabled)
   if (!_sbReady || !supabaseClient) return;
   try {
-    const { data, error } = await supabaseClient
+    let { data, error } = await supabaseClient
       .from(PROJECTS_TABLE)
       .select('id,name,category,description,status,created_at,updated_at,snapshot,data')
       .order('updated_at', { ascending: false, nullsFirst: false });
+
+    // If the table was created before adding snapshot/data, still show the projects.
+    const missingJsonCols = error && (
+      String(error.message || '').includes('snapshot') ||
+      String(error.message || '').includes('data') ||
+      String(error.details || '').includes('snapshot') ||
+      String(error.details || '').includes('data') ||
+      error.code === '42703'
+    );
+    if (missingJsonCols) {
+      console.warn('[Supabase] snapshot/data columns missing. Loading basic project list only:', error.message);
+      const fallback = await supabaseClient
+        .from(PROJECTS_TABLE)
+        .select('id,name,category,description,status,created_at,updated_at')
+        .order('updated_at', { ascending: false, nullsFirst: false });
+      data = fallback.data;
+      error = fallback.error;
+    }
 
     if (error) {
       // Show the exact error so user knows what to fix
@@ -4134,6 +4152,8 @@ async function loadPortfolio() {
         _sbToast('⚠️ Supabase: Row Level Security is blocking access. Run the SQL fix in Settings → Supabase.', '#A56105');
       } else if (isNoTable) {
         _sbToast('⚠️ Supabase: Table "projects" not found. Create it from Settings → Supabase.', '#A56105');
+      } else {
+        _sbToast('⚠️ Supabase: no se pudo cargar. Usando proyectos locales.', '#A56105');
       }
       console.warn('[Supabase] loadPortfolio error:', error);
       return; // keep localStorage data
@@ -4263,7 +4283,21 @@ function projectPayload() {
 }
 
 function loadProjectPayload(p) {
- CFG = { ...p.cfg };
+ // Some rows in Supabase may only contain name/category/status and no saved model JSON yet.
+ // Open them safely as an empty financial model instead of crashing the whole app.
+ const DEFAULT_CFG = { fx:3.75, pen:5, con:5, dis:12, months:12, sm:1, sy:2025, fcb:0, fcbCost:0, fub:0, hedg:0, opxbuf:30, finRate:0 };
+ if (!p || typeof p !== 'object') {
+  CFG = { ...DEFAULT_CFG };
+  revenues = [];
+  capex = [];
+  opex = [];
+  adjustments = [];
+  customLines = [];
+  document.getElementById('proj-name').value = 'Untitled Project';
+  _uid = 1;
+  return;
+ }
+ CFG = { ...DEFAULT_CFG, ...(p.cfg || {}) };
  revenues = p.revenues || [];
  capex = p.capex || [];
  opex = p.opex || [];
@@ -4271,7 +4305,7 @@ function loadProjectPayload(p) {
  customLines = (p.customLines || []).map(l => ({ ...mkCustomLine(), ...l }));
  document.getElementById('proj-name').value = p.projName || 'Untitled';
  _uid = Math.max(_uid,
- ...[...revenues,...capex,...opex,...adjustments].map(x=>x.id||0).map(Number), 0
+ ...[...revenues,...capex,...opex,...adjustments].map(x=>x.id||0).map(Number).filter(n=>!isNaN(n)), 0
  ) + 1;
 }
 
@@ -5467,7 +5501,7 @@ async function renderPortfolio() {
 function openProject(id) {
  const proj = portfolio.find(p => p.id === id);
  if (!proj) return;
- loadProjectPayload(proj.data);
+ loadProjectPayload(proj.data || { projName: proj.name });
  currentProjectId = id;
  showProject();
  renderSettings();
@@ -5477,11 +5511,12 @@ function openProject(id) {
 //  NEW PROJECT 
 function newProject() {
  currentProjectId = null;
- CFG = { fx:3.75, pen:5, con:5, dis:12, months:12, sm:1, sy:2025 };
+ CFG = { fx:3.75, pen:5, con:5, dis:12, months:12, sm:1, sy:2025, fcb:0, fcbCost:0, fub:0, hedg:0, opxbuf:30, finRate:0 };
  revenues = [];
  capex = [];
  opex = [];
  adjustments = [];
+ customLines = [];
  document.getElementById('proj-name').value = 'New Project';
  showProject();
  renderSettings();
